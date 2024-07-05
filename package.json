@@ -3,9 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dist/lheadsup.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "dev": "vite --port=3000",
-    "build": "tsc && vite build",
+    "build": "vite build && tsc --emitDeclarationOnly",
     "preview": "vite preview",
     "test": "vitest"
   },
