@@ -1,5 +1,5 @@
 import { hand_rank } from './hand_rank'
-import { Card, split_cards } from './cards'
+import { Card, Card3, split_cards } from './cards'
 
 export type Chips = number
 export type BetDescription = string
@@ -207,6 +207,15 @@ export class PotShare {
 export type StackState = string
 
 export class Call {
+
+  static from_fen(cmd: string) {
+    let [str, call] = cmd.split('-')
+
+    if (str === 'call') {
+      return new Call(parseInt(call))
+    }
+  }
+
   constructor(readonly match: Chips) {}
 
   get fen() {
@@ -215,6 +224,31 @@ export class Call {
 }
 
 export class Raise {
+
+  static from_fen(cmd: string) {
+    let [raise, cant] = cmd.split('x')
+
+    let [str, _match, _min_raise] = raise.split('-')
+    if (str === 'raise') {
+      let match = parseInt(_match)
+      let min_raise = parseInt(_min_raise)
+
+      if (cant) {
+        let [_a, _b] = cant.split('-')
+
+        let a = parseInt(_a)
+        let b = parseInt(_b)
+
+        if (b === 0) {
+          return Raise.cant_match(match, min_raise, a)
+        } else {
+          return Raise.cant_minraise(match, min_raise, b)
+        }
+      } else {
+        return new Raise(match, min_raise)
+      }
+    }
+  }
 
   static cant_match = (match: Chips, min_raise: Chips, stack: Chips) => new Raise(match, min_raise, stack)
   static cant_minraise = (match: Chips, min_raise: Chips, stack: Chips) => new Raise(match, min_raise, undefined, stack)
@@ -347,6 +381,60 @@ export class Stack {
 }
 
 export class Dests {
+
+
+  static from_fen = (fen: string) => {
+    let cmds = fen.split(' ')
+
+
+    let res = Dests.empty
+
+
+    cmds.forEach(cmd => {
+      if (cmd === 'win') {
+        res.win = true
+      }
+      if (cmd === 'fin') {
+        res.fin = true
+      }
+      if (cmd === 'phase') {
+        res.phase = true
+      }
+      if (cmd === 'showdown') {
+        res.showdown = true
+      }
+      if (cmd === 'share') {
+        res.share = true
+      }
+      if (cmd === 'check') {
+        res.check = true
+      }
+      if (cmd === 'fold') {
+        res.fold = true
+      }
+
+
+      let call = Call.from_fen(cmd)
+      if (call) {
+        res.call = call
+      }
+
+      let raise = Raise.from_fen(cmd)
+      if (raise) {
+        res.raise = raise;
+      }
+
+
+      let [str, deal] = cmd.split('-')
+
+      if (str === 'deal') {
+        res.deal = parseInt(deal)
+      }
+
+    })
+
+    return res
+  }
 
   static get empty() { return new Dests() }
   static deal(nb: number) { return new Dests(nb) }
@@ -644,6 +732,10 @@ export class RoundN {
     return this.find_stack_sides_with_states('f')
   }
 
+  get showdown_sides() {
+    return this.find_stack_sides_with_states('s')
+  }
+
 
   get have_contributed_to_pots() {
     return this.stacks.filter(_ => !!_.bet)
@@ -666,6 +758,12 @@ export class RoundN {
     let reveal_flop = phase !== 'p',
       reveal_turn = phase === 't' || phase === 'r',
       reveal_river = phase === 'r'
+
+    if (this.showdown_sides.length > 0) {
+      reveal_flop = true
+      reveal_turn = true
+      reveal_river = true
+    } 
 
     let flop = reveal_flop ? (this.middle?.slice(0, 3) as [Card, Card, Card] | undefined) : undefined
     let turn = reveal_turn ? this.middle?.[3] : undefined
@@ -1192,11 +1290,56 @@ export class RoundN {
 }
 
 export abstract class Event {
+
+  static from_fen = (fen: string): Event | undefined => {
+    let i
+    i = ChangeState.from_fen(fen)
+    if (i) { return i }
+    i = HandEvent.from_fen(fen)
+    if (i) { return i }
+    i = StackEvent.from_fen(fen)
+    if (i) { return i }
+    i = ActionBetEvent.from_fen(fen)
+    if (i) { return i }
+    i = PotEvent.from_fen(fen)
+    if (i) { return i }
+    i = FlopEvent.from_fen(fen)
+    if (i) { return i }
+    i = TurnEvent.from_fen(fen)
+    if (i) { return i }
+    i = RiverEvent.from_fen(fen)
+    if (i) { return i }
+    i = PotShareEvent.from_fen(fen)
+    if (i) { return i }
+    i = CollectHand.from_fen(fen)
+    if (i) { return i }
+    i = CollectPot.from_fen(fen)
+    if (i) { return i }
+    i = StackAddEvent.from_fen(fen)
+    if (i) { return i }
+    i = ButtonEvent.from_fen(fen)
+    if (i) { return i }
+    i = PotAddBet.from_fen(fen)
+    if (i) { return i }
+    i = SidePotEvent.from_fen(fen)
+    if (i) { return i }
+  }
+
   abstract pov(nb: number, pov: Side): Event
+  abstract fen: string
 }
 
 
 export class SidePotEvent extends Event {
+
+
+  static from_fen = (fen: string) => {
+    let [cmd, shorts, chips] = fen.split(' ')
+    if (cmd === 'v') {
+      return new SidePotEvent(shorts.split('').map(_ => parseInt(_) as Side), parseInt(chips))
+    }
+  }
+
   constructor(readonly shorts: Side[], readonly chips: Chips) { super() }
 
   pov(nb: number, pov: Side) {
@@ -1209,6 +1352,16 @@ export class SidePotEvent extends Event {
 }
 
 export class PotAddBet extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side, chips] = fen.split(' ')
+    if (cmd === 'p') {
+      return new PotAddBet(parseInt(side) as Side, parseInt(chips))
+    }
+  }
+
+
+
   constructor(readonly side: Side, readonly chips: Chips) { super() }
 
   pov(nb: number, pov: Side) {
@@ -1233,6 +1386,16 @@ export class ButtonEvent extends Event {
 }
 
 export class StackAddEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side, delta] = fen.split(' ')
+    if (cmd === 'S') {
+      return new StackAddEvent(parseInt(side) as Side, parseInt(delta))
+    }
+  }
+
+
+
   constructor(readonly side: Side, readonly delta: Chips) { super() }
 
 
@@ -1250,6 +1413,14 @@ export class StackAddEvent extends Event {
 
 export class CollectPot extends Event {
 
+  static from_fen = (fen: string) => {
+    if (fen === 'C') {
+      return new CollectPot()
+    }
+  }
+
+
+
   pov(_nb: number, _pov: Side) {
     return this
   }
@@ -1260,6 +1431,16 @@ export class CollectPot extends Event {
 }
 
 export class CollectHand extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side] = fen.split(' ')
+    if (cmd === 'o') {
+      return new CollectHand(parseInt(side) as Side)
+    }
+  }
+
+
+
   constructor(readonly side: Side) { super() }
 
   pov(nb: number, pov: Side) {
@@ -1286,6 +1467,16 @@ export class PotShareEvent extends Event {
 
 }
 export class RiverEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, river] = fen.split(' ')
+    if (cmd === 'r') {
+      return new RiverEvent(river)
+    }
+  }
+
+
+
   constructor(readonly river: Card) {super()}
 
   pov(_nb: number, _pov: Side) {
@@ -1300,6 +1491,16 @@ export class RiverEvent extends Event {
 }
 
 export class TurnEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, turn] = fen.split(' ')
+    if (cmd === 't') {
+      return new TurnEvent(turn)
+    }
+  }
+
+
+
   constructor(readonly turn: Card) {super()}
 
   pov(_nb: number, _pov: Side) {
@@ -1313,6 +1514,16 @@ export class TurnEvent extends Event {
 
 }
 export class FlopEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, flop] = fen.split(' ')
+    if (cmd === 'f') {
+      return new FlopEvent(split_cards(flop) as Card3)
+    }
+  }
+
+
+
   constructor(readonly flop: [Card, Card, Card]) {super()}
 
   pov(_nb: number, _pov: Side) {
@@ -1328,6 +1539,15 @@ export class FlopEvent extends Event {
 
 export class PotEvent extends Event {
 
+  static from_fen = (fen: string) => {
+    let [cmd, chips] = fen.split(' ')
+    if (cmd === 'p') {
+      return new PotEvent(parseInt(chips))
+    }
+  }
+
+
+
   constructor(readonly chips: Chips) {super()}
 
   pov(_nb: number, _pov: Side) {
@@ -1341,6 +1561,14 @@ export class PotEvent extends Event {
 }
 
 export class ActionBetEvent extends Event {
+
+
+  static from_fen = (fen: string) => {
+    let [cmd, side, bet] = fen.split(' ')
+    if (cmd === 'a') {
+      return new ActionBetEvent(parseInt(side) as Side, Bet.from_fen(bet))
+    }
+  }
 
   constructor(readonly side: Side, readonly bet?: Bet) { super() }
 
@@ -1359,6 +1587,14 @@ export class ActionBetEvent extends Event {
 }
 
 export class StackEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side, delta] = fen.split(' ')
+    if (cmd === 's') {
+      return new StackEvent(parseInt(side) as Side, parseInt(delta))
+    }
+  }
+
   constructor(readonly side: Side, readonly delta: Chips) { super() }
 
 
@@ -1373,6 +1609,16 @@ export class StackEvent extends Event {
 }
 
 export class HandEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side, hand] = fen.split(' ')
+    if (cmd === 'h') {
+      return new HandEvent(parseInt(side) as Side, split_cards(hand) as [Card, Card])
+    }
+  }
+
+
+
   constructor(readonly side: Side, readonly hand: [Card, Card]) { super() }
 
 
@@ -1387,6 +1633,15 @@ export class HandEvent extends Event {
 
 export class ChangeState extends Event {
 
+  static from_fen = (fen: string) => {
+    let [cmd, side, state] = fen.split(' ')
+    if (cmd === 'c') {
+      return new ChangeState(parseInt(side) as Side, state)
+    }
+  }
+
+
+
   constructor(readonly side: Side, readonly state: StackState) { super() }
 
   pov(nb: number, pov: Side) {
@@ -1397,6 +1652,27 @@ export class ChangeState extends Event {
     return `c ${this.side} ${this.state}`
   }
 }
+
+
+export const EventKlasses = [
+  ChangeState,
+  HandEvent,
+  StackEvent,
+  ActionBetEvent,
+  PotEvent,
+  FlopEvent,
+  TurnEvent,
+  RiverEvent,
+  PotShareEvent,
+  CollectHand,
+  CollectPot,
+  StackAddEvent,
+  ButtonEvent,
+  PotAddBet,
+  SidePotEvent
+]
+
+
 
 export class Events {
 

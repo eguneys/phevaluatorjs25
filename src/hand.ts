@@ -48,7 +48,7 @@ export function get_rank_category(rank: number) {
 }
 
 export function get_klass(cards: Card[]) {
-    let holdrank = lookup_cards(cards)
+    let holdrank = evaluate_ncards(cards)
 
     let klass = 7463 - holdrank
     let h = 10 - get_rank_category(holdrank)
@@ -213,6 +213,10 @@ export function lookup_cards_str(cards: string) {
 }
 
 export function lookup_cards(cards: Card[]) {
+  return 7463 - evaluate_ncards(cards)
+}
+
+export function evaluate_ncards(cards: Card[]) {
     switch (cards.length) {
         case 5:
             return evaluate_5cards(...(cards.map(_ => card_id(_)) as CardId5))
