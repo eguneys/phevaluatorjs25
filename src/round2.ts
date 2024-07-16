@@ -1736,4 +1736,29 @@ export class Events {
   get spec() {
     return this.specs
   }
+
+
+  get extra(): EventExtra {
+
+    let turn = this.specs.find(_ => _ instanceof ChangeState && _.state === '@')
+
+    if (turn) {
+      let time_left = 13000
+      let flop = this.specs.find(_ => _ instanceof FlopEvent)
+      let turn = this.specs.find(_ => _ instanceof TurnEvent)
+      let river = this.specs.find(_ => _ instanceof RiverEvent)
+
+      if (flop) { time_left += 2000 }
+      if (turn) { time_left += 3000 }
+      if (river) { time_left += 4000 }
+
+      return { time_left }
+    }
+
+    return {}
+  }
+}
+
+type EventExtra = {
+  time_left?: number
 }
