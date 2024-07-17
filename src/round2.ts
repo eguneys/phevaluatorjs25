@@ -1301,8 +1301,6 @@ export abstract class Event {
     if (i) { return i }
     i = ActionBetEvent.from_fen(fen)
     if (i) { return i }
-    i = PotEvent.from_fen(fen)
-    if (i) { return i }
     i = FlopEvent.from_fen(fen)
     if (i) { return i }
     i = TurnEvent.from_fen(fen)
@@ -1554,36 +1552,13 @@ export class FlopEvent extends Event {
 
 }
 
-export class PotEvent extends Event {
-
-  static from_fen = (fen: string) => {
-    let [cmd, chips] = fen.split(' ')
-    if (cmd === 'p') {
-      return new PotEvent(parseInt(chips))
-    }
-  }
-
-
-
-  constructor(readonly chips: Chips) {super()}
-
-  pov(_nb: number, _pov: Side) {
-    return new PotEvent(this.chips)
-  }
-
-
-  get fen() {
-    return `p ${this.chips}`
-  }
-}
-
 export class ActionBetEvent extends Event {
 
 
   static from_fen = (fen: string) => {
     let [cmd, side, bet] = fen.split(' ')
     if (cmd === 'a') {
-      return new ActionBetEvent(parseInt(side) as Side, Bet.from_fen(bet))
+      return new ActionBetEvent(parseInt(side) as Side, bet ? Bet.from_fen(bet) : undefined)
     }
   }
 
@@ -1676,7 +1651,6 @@ export const EventKlasses = [
   HandEvent,
   StackEvent,
   ActionBetEvent,
-  PotEvent,
   FlopEvent,
   TurnEvent,
   RiverEvent,
