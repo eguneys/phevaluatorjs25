@@ -1374,6 +1374,14 @@ export class PotAddBet extends Event {
 }
 
 export class ButtonEvent extends Event {
+
+  static from_fen = (fen: string) => {
+    let [cmd, side] = fen.split(' ')
+    if (cmd === 'b') {
+      return new ButtonEvent(parseInt(side) as Side)
+    }
+  }
+
   constructor(readonly side: Side) { super() }
 
   pov(nb: number, pov: Side) {
@@ -1454,6 +1462,15 @@ export class CollectHand extends Event {
 }
 
 export class PotShareEvent extends Event {
+
+
+  static from_fen = (fen: string) => {
+    let [cmd, share] = fen.split(' ')
+    if (cmd === 'w') {
+      return new PotShareEvent(PotShare.from_fen(share))
+    }
+  }
+
   constructor(readonly share: PotShare) {super()}
 
   pov(nb: number, pov: Side) {
@@ -1738,7 +1755,7 @@ export class Events {
   }
 
 
-  get extra(): EventExtra {
+  get extra(): RoundNExtra {
 
     let turn = this.specs.find(_ => _ instanceof ChangeState && _.state === '@')
 
@@ -1759,6 +1776,6 @@ export class Events {
   }
 }
 
-type EventExtra = {
+export type RoundNExtra = {
   time_left?: number
 }
