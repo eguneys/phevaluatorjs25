@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest'
 
-import { evaluate_7cards } from '../src/main'
-import { Card7, CardId7, split_cards_to_ids } from '../src/card'
+import { evaluate_7cards } from '../src'
+import { Card7, CardId7, split_cards_to_ids } from '../src'
 
 it('works', () => {
 
